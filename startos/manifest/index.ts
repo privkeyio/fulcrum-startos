@@ -5,8 +5,8 @@ export const manifest = setupManifest({
   id: 'fulcrum',
   title: 'Fulcrum',
   license: 'MIT',
-  packageRepo: 'https://github.com/Start9Labs/fulcrum-startos',
-  upstreamRepo: 'https://github.com/cculianu/Fulcrum',
+  packageRepo: 'https://github.com/privkeyio/fulcrum-startos',
+  upstreamRepo: 'https://github.com/privkeyio/Fulcrum',
   marketingUrl: 'https://github.com/cculianu/Fulcrum',
   donationUrl: 'https://github.com/cculianu/Fulcrum',
   description: { short, long },
@@ -14,9 +14,12 @@ export const manifest = setupManifest({
   images: {
     main: {
       source: {
-        dockerTag: 'cculianu/fulcrum:v2.1.1',
+        dockerBuild: {
+          workdir: 'fulcrum',
+          dockerfile: 'fulcrum/contrib/docker/Dockerfile',
+        },
       },
-      arch: ['x86_64', 'aarch64'],
+      arch: ['x86_64'],
     },
   },
   dependencies: {

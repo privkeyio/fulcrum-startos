@@ -11,8 +11,10 @@
 
 [Fulcrum](https://github.com/cculianu/Fulcrum) is an Electrum server: it builds an address index over your Bitcoin node's chain so wallets can query balances and histories. On StartOS it authenticates to the node through a mounted cookie, requires the node to be configured a particular way, and sizes its index cache to the machine.
 
-- **Upstream repo:** <https://github.com/cculianu/Fulcrum>
-- **Wrapper repo:** <https://github.com/Start9Labs/fulcrum-startos>
+- **Upstream repo:** <https://github.com/privkeyio/Fulcrum> (a fork of <https://github.com/cculianu/Fulcrum>)
+- **Wrapper repo:** <https://github.com/privkeyio/fulcrum-startos>
+
+This package builds Fulcrum from a fork carrying BLAKE2b proof-of-work hard fork support. See [BLAKE2b Hard Fork Support](#blake2b-hard-fork-support).
 
 ---
 
@@ -28,6 +30,7 @@
 - [Tasks](#tasks)
 - [Health Checks](#health-checks)
 - [Backups and Restore](#backups-and-restore)
+- [BLAKE2b Hard Fork Support](#blake2b-hard-fork-support)
 - [Limitations and Differences](#limitations-and-differences)
 - [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
 
@@ -35,12 +38,12 @@
 
 ## Image and Container Runtime
 
-The upstream image is used unmodified, and one subcontainer runs the service.
+The image is built from source out of the `fulcrum` submodule at pack time, using that repo's `contrib/docker/Dockerfile`. One subcontainer runs the service.
 
 | Property      | Value                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| Image         | `cculianu/fulcrum`                                                |
-| Architectures | x86_64, aarch64                                                   |
+| Image         | built from `fulcrum/` submodule (privkeyio/Fulcrum, `blake2b-pow`) |
+| Architectures | x86_64                                                            |
 | Command       | `Fulcrum` against the config file, with log timestamps suppressed |
 | Subcontainer  | `primary-sub` — the `primary` daemon, and the one to `attach` to  |
 
@@ -170,6 +173,19 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 - **Included:** `fulcrum.conf`, `banner.txt`, and `store.json`.
 
 **A restore therefore rebuilds the index from scratch**, which takes as long as the original build did and needs Bitcoin present and synced first. What comes back is the configuration, not the work.
+
+## BLAKE2b Hard Fork Support
+
+Stock Fulcrum assumes every block header is 80 bytes and hashes it with SHA256d. The BLAKE2b hard fork changes the proof of work at an activation height: from that block on, headers are 164 bytes and hashed with BLAKE2b, signalled by the top bit of the version field.
+
+This is one chain with continuous history, not a second chain. Every block below the activation height keeps its original 80-byte SHA256d header permanently, so both header forms coexist in the same index and each must be hashed with its own algorithm. Stock Fulcrum stops at the activation block rather than serving wrong data.
+
+This build reads both forms, hashes each with the right algorithm, and serves them unchanged over the Electrum protocol. Below the activation height there is no behavioural difference.
+
+Two consequences worth knowing:
+
+- **The index is rebuilt from scratch on this version.** Header records grew from 80 to 164 bytes, so the on-disk format changed and the header table's magic was bumped. An index written by an earlier version fails to open with an explicit error instead of being misread. This is a local index rebuild forced by the storage format, not a re-download of a different chain, but it still costs a full resync on first start.
+- **Wallets need their own support.** `blockchain.block.header` and `blockchain.block.headers` return whatever size the header actually is. A wallet that splits the concatenated `block.headers` blob at a fixed 80-byte stride, or that checks proof of work as SHA256d, will not follow the chain past the activation height no matter what this server returns.
 
 ## Limitations and Differences
 
