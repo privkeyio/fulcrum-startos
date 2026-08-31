@@ -1,17 +1,18 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '2.1.2:1',
+  version: '2.1.2:2',
   releaseNotes: {
-    en_US: `Rebuilds on Fulcrum 2.1.2, keeping BLAKE2b hard fork support.
+    en_US: `Recovers automatically from an index this build cannot read.
 
-Upstream 2.1.2 replaced this package on machines that took it from the marketplace, and stock Fulcrum cannot read an index written with BLAKE2b headers: it stops with a magic bytes mismatch rather than misreading it. This version is upstream 2.1.2 with the hard fork support applied on top, so it reads that index again.
+Fulcrum writes a different header record format here than the marketplace build does, and neither can open the other's index: it stops with a magic bytes mismatch instead of misreading the data. Installing this package over a working stock Fulcrum therefore left it crash-looping, with nothing a user could do from the interface to clear it.
 
-The index is kept. Upstream 2.1.2 left the database version and the record layout alone, so there is nothing to migrate and no resync.
+The daemon now watches for that specific error, discards the index once, and lets Fulcrum restart and rebuild. It only fires on that message, so an index this build can read is never touched and no resync happens on an ordinary upgrade.
 
-Note that the marketplace build of Fulcrum will replace this one whenever its version sorts higher, and Fulcrum will then refuse to start until this package is installed again.`,
+Where the index is discarded, the address index is rebuilt from scratch and takes as long as the original sync.`,
   },
-  // No migration: upstream 2.1.2 did not change the database version or the record layout, and the
-  // index on disk is the one this package wrote.
+  // No migration: the index is cleared at runtime only when Fulcrum reports it cannot read it,
+  // which is the actual condition. A version range cannot express it, since both this package's
+  // earlier releases and the marketplace build occupy the same unflavored version space.
   migrations: {},
 })
