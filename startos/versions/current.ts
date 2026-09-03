@@ -1,18 +1,21 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '2.1.2:2',
+  version: '2.1.2:0',
   releaseNotes: {
-    en_US: `Recovers automatically from an index this build cannot read.
+    en_US: `Fulcrum with support for the BLAKE2b proof-of-work hardfork, as a separate package.
 
-Fulcrum writes a different header record format here than the marketplace build does, and neither can open the other's index: it stops with a magic bytes mismatch instead of misreading the data. Installing this package over a working stock Fulcrum therefore left it crash-looping, with nothing a user could do from the interface to clear it.
+The hardfork changes the proof of work at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The Fulcrum in the marketplace cannot parse the new form and stops at the activation block rather than serving wrong data. This build reads both.
 
-The daemon now watches for that specific error, discards the index once, and lets Fulcrum restart and rebuild. It only fires on that message, so an index this build can read is never touched and no resync happens on an ordinary upgrade.
+## Why this is a separate package
 
-Where the index is discarded, the address index is rebuilt from scratch and takes as long as the original sync.`,
+Earlier releases of this work carried the same package id as the marketplace Fulcrum, so its version outranked them and replaced them, after which Fulcrum would not start because the two wrote incompatible indexes. A distinct id removes that: the two packages coexist, neither replaces the other, and each keeps its own index.
+
+Installing this alongside the marketplace Fulcrum is supported and is the safe way to try it. It builds its own index from scratch, which takes as long as the original sync, and the Electrum port stays closed until that finishes.
+
+## On-disk format
+
+The extended header's first 80 bytes are exactly the legacy field layout, so the headers table keeps the same record size and magic the marketplace build uses, and only the 84-byte tail is stored separately, in a table created the first time an extended header is seen. A chain that has not activated the hardfork therefore writes an index the marketplace build can also read.`,
   },
-  // No migration: the index is cleared at runtime only when Fulcrum reports it cannot read it,
-  // which is the actual condition. A version range cannot express it, since both this package's
-  // earlier releases and the marketplace build occupy the same unflavored version space.
   migrations: {},
 })
