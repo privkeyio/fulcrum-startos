@@ -1,21 +1,33 @@
-import { VersionInfo } from '@start9labs/start-sdk'
+import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '2.1.2:0',
+  version: '#blake:2.1.2:0',
   releaseNotes: {
-    en_US: `Fulcrum with support for the BLAKE2b proof-of-work hardfork, as a separate package.
+    en_US: `Fulcrum with support for the BLAKE2b proof-of-work hardfork.
 
-The hardfork changes the proof of work at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The Fulcrum in the marketplace cannot parse the new form and stops at the activation block rather than serving wrong data. This build reads both.
+The hardfork changes the proof of work at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The standard build cannot parse the new form and stops at the activation block rather than serving wrong data. This one reads both.
 
-## Why this is a separate package
+## Switching to this build
 
-Earlier releases of this work carried the same package id as the marketplace Fulcrum, so its version outranked them and replaced them, after which Fulcrum would not start because the two wrote incompatible indexes. A distinct id removes that: the two packages coexist, neither replaces the other, and each keeps its own index.
+This is a flavor of the same package rather than a separate one, so it replaces the standard build in place and keeps its index. The on-disk format is unchanged below the activation height: the headers table keeps the same record size and magic, and only the extended header's 84-byte tail is stored separately, in a table created the first time such a header is seen. Switching therefore does not resync.
 
-Installing this alongside the marketplace Fulcrum is supported and is the safe way to try it. It builds its own index from scratch, which takes as long as the original sync, and the Electrum port stays closed until that finishes.
+## Switching back is not offered
 
-## On-disk format
-
-The extended header's first 80 bytes are exactly the legacy field layout, so the headers table keeps the same record size and magic the marketplace build uses, and only the 84-byte tail is stored separately, in a table created the first time an extended header is seen. A chain that has not activated the hardfork therefore writes an index the marketplace build can also read.`,
+Once the chain has activated the hardfork, the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,
   },
-  migrations: {},
+  migrations: {
+    up: async () => {},
+    //Refuse the reverse switch. Past the activation height the index holds extended headers the
+    //unflavored build cannot read, so it would fail to start with no way to recover from the UI.
+    down: IMPOSSIBLE,
+    other: {
+      //Arriving from the unflavored build. Its index is readable as-is below the activation height,
+      //so there is nothing to migrate and no resync.
+      //No `down`: omitting it leaves the reverse switch unavailable, which is what the index requires
+      //past the activation height.
+      ['^2']: {
+        up: async () => {},
+      },
+    },
+  },
 })

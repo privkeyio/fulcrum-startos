@@ -2,7 +2,7 @@ import { setupManifest } from '@start9labs/start-sdk'
 import { bitcoindDescription, long, short } from './i18n'
 
 export const manifest = setupManifest({
-  id: 'fulcrum-blake2b',
+  id: 'fulcrum',
   title: 'Fulcrum (BLAKE2b)',
   license: 'MIT',
   packageRepo: 'https://github.com/privkeyio/fulcrum-startos',
