@@ -1,4 +1,4 @@
 [submodule "fulcrum"]
 	path = fulcrum
 	url = https://github.com/privkeyio/Fulcrum.git
-	branch = blake2b
+	branch = master
