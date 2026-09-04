@@ -42,7 +42,7 @@ The image is built from source out of the `fulcrum` submodule at pack time, usin
 
 | Property      | Value                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| Image         | built from `fulcrum/` submodule (privkeyio/Fulcrum, `blake2b-pow`) |
+| Image         | built from `fulcrum/` submodule (privkeyio/Fulcrum, `master`)      |
 | Architectures | x86_64                                                            |
 | Command       | `Fulcrum` against the config file, with log timestamps suppressed |
 | Subcontainer  | `primary-sub` — the `primary` daemon, and the one to `attach` to  |
