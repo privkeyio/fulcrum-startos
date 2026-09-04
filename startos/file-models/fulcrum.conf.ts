@@ -9,8 +9,11 @@ export const defaultDbMem = () =>
 
 export const syncedDbMem = () => Math.min(512, defaultDbMem())
 
+// The union's transform output is not revalidated, so without the pipe
+// Number('abc') succeeds as NaN and is written back into the file.
 const iniNumber = z
   .union([z.string().transform(Number), z.number()])
+  .pipe(z.number())
   .optional()
   .catch(undefined)
 

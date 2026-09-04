@@ -1,3 +1,4 @@
+import { rm } from 'fs/promises'
 import { sdk } from './sdk'
 import { i18n } from './i18n'
 import { electrumPort } from './utils'
@@ -42,6 +43,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   // var to keep track of sync progress
   let lastSyncLog: string | null = null
+  let clearedUnreadableIndex = false
 
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
@@ -73,6 +75,25 @@ export const main = sdk.setupMain(async ({ effects }) => {
             : String(chunk)
 
           console.log(text)
+
+          // This build and the marketplace build can write incompatible header records, and neither
+          // can open the other's index; Fulcrum reports this and exits rather than misreading the
+          // data. Discard the index so the restart rebuilds it, instead of crash-looping with no way
+          // out from the UI. Guarded so it happens once per run, and keyed on the message so a
+          // readable index is never touched.
+          if (
+            !clearedUnreadableIndex &&
+            text.includes('Magic bytes mismatch for DB fulc2_db')
+          ) {
+            clearedUnreadableIndex = true
+            console.warn(
+              'Fulcrum cannot read the existing address index, which was written by a build using a different header format. Discarding it; it will be rebuilt from scratch.',
+            )
+            rm('/media/startos/volumes/main/fulc2_db', {
+              recursive: true,
+              force: true,
+            }).catch(console.error)
+          }
 
           const prefix = '<Controller>'
           if (text.startsWith(prefix)) {

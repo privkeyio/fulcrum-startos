@@ -11,6 +11,10 @@ The hardfork changes the proof of work at an activation height: from that block 
 
 This is a flavor of the same package rather than a separate one, so it replaces the standard build in place and keeps its index. The on-disk format is unchanged below the activation height: the headers table keeps the same record size and magic, and only the extended header's 84-byte tail is stored separately, in a table created the first time such a header is seen. Switching therefore does not resync.
 
+## Coming from an earlier release of this package
+
+Releases before this one padded every header out to 164 bytes and stamped the headers table with their own magic, which neither the standard build nor this one can read. Only that table differed, so such an index is converted on the first start rather than being rebuilt: a chain the length of mainnet converts in a second or two, and the address index, the utxo set and everything else are kept untouched. Should the conversion not complete, the index is discarded and rebuilt rather than leaving the service unable to start.
+
 ## Switching back is not offered
 
 Once the chain has activated the hardfork, the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,

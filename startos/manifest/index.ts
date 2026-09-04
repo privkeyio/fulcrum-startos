@@ -19,7 +19,7 @@ export const manifest = setupManifest({
           dockerfile: 'fulcrum/contrib/docker/Dockerfile',
         },
       },
-      arch: ['x86_64'],
+      arch: ['x86_64', 'aarch64'],
     },
   },
   dependencies: {
