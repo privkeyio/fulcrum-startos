@@ -100,7 +100,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
           }
 
           if (text.includes('block headers to the current format')) converting = true
-          if (text.includes('Converted') && text.includes('block headers in')) converting = false
+          // Clear on anything that means the conversion is no longer under way. Reporting it as still
+          // running when it has died would dress a permanently broken service up as a busy one, which is
+          // worse than the noisy failures this flag exists to quieten. A single substring, because stdout
+          // arrives as raw pipe chunks and a pair could be split across two of them.
+          if (
+            text.includes('block headers in ') || // finished
+            text.includes('Caught exception:') || // died, including any failure inside the conversion
+            text.includes('<Controller>') // got far enough to start indexing, so it is long done
+          ) {
+            converting = false
+          }
 
           const prefix = '<Controller>'
           if (text.startsWith(prefix)) {
