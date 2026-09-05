@@ -44,6 +44,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // var to keep track of sync progress
   let lastSyncLog: string | null = null
   let clearedUnreadableIndex = false
+  // Set while the block headers are being converted, which is the one startup path that keeps the
+  // Electrum port shut for a noticeable stretch without any sync progress to report yet.
+  let converting = false
 
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
@@ -96,6 +99,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }).catch(console.error)
           }
 
+          if (text.includes('block headers to the current format')) converting = true
+          if (text.includes('Converted') && text.includes('block headers in')) converting = false
+
           const prefix = '<Controller>'
           if (text.startsWith(prefix)) {
             lastSyncLog = text.slice(prefix.length).trim()
@@ -115,6 +121,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
           )
 
           if (result.result === 'success') return result
+
+          if (converting) {
+            return {
+              result: 'loading',
+              message: i18n('Converting the block headers to the current format...'),
+            }
+          }
 
           if (lastSyncLog) {
             return {
