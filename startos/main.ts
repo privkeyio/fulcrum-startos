@@ -83,7 +83,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
           // readable index is never touched.
           if (
             !clearedUnreadableIndex &&
-            text.includes('Magic bytes mismatch for DB fulc2_db')
+            (text.includes('Magic bytes mismatch for DB fulc2_db') ||
+              text.includes('header format stopped partway'))
           ) {
             clearedUnreadableIndex = true
             console.warn(

@@ -7,13 +7,17 @@ export const current = VersionInfo.of({
 
 The hardfork changes the proof of work at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The standard build cannot parse the new form and stops at the activation block rather than serving wrong data. This one reads both.
 
+## Requires Bitcoin Knots
+
+Only Knots schedules the hardfork, so only Knots serves the extended headers this build exists to index. It depends on the Knots flavor of Bitcoin specifically; a standard Bitcoin node no longer satisfies it.
+
 ## Switching to this build
 
 This is a flavor of the same package rather than a separate one, so it replaces the standard build in place and keeps its index. The on-disk format is unchanged below the activation height: the headers table keeps the same record size and magic, and only the extended header's 84-byte tail is stored separately, in a table created the first time such a header is seen. Switching therefore does not resync.
 
 ## Coming from an earlier release of this package
 
-Releases before this one padded every header out to 164 bytes and stamped the headers table with their own magic, which neither the standard build nor this one can read. Only that table differed, so such an index is converted on the first start rather than being rebuilt: a chain the length of mainnet converts in a second or two, and the address index, the utxo set and everything else are kept untouched. Should the conversion not complete, the index is discarded and rebuilt rather than leaving the service unable to start.
+Releases before this one padded every header out to 164 bytes and stamped the headers table with their own magic, which neither the standard build nor this one can read. Only that table differed, so such an index is converted on the first start rather than being rebuilt: a chain the length of mainnet converts in seconds against the days a rebuild costs, and the address index, the utxo set and everything else are kept untouched. Should the conversion not complete, the index is discarded and rebuilt rather than leaving the service unable to start.
 
 ## Switching back is not offered
 
