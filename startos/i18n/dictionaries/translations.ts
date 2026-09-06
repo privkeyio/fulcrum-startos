@@ -34,6 +34,7 @@ export default {
     29: 'Fulcrum ha terminado de construir su índice de direcciones. Se reiniciará una vez para aplicar un ajuste de memoria de base de datos más bajo, tras lo cual el servidor Electrum estará listo.',
     30: 'Historial máximo por dirección',
     31: 'Número máximo de transacciones que Fulcrum informará para una sola dirección. Una dirección con más movimiento que este límite devuelve un historial, un saldo y una lista de monedas vacíos o parciales en lugar de un error, por lo que una cartera que la contenga muestra los fondos como si no existieran. Auméntelo si alguna dirección que usa tiene un historial muy largo; el límite existe para acotar la memoria y el tiempo que puede costar una sola solicitud.',
+    32: 'Convirtiendo las cabeceras de bloque al formato actual...',
   },
   de_DE: {
     0: 'Fulcrum wird gestartet',
@@ -68,6 +69,7 @@ export default {
     29: 'Fulcrum hat den Adressindex fertiggestellt. Es startet einmal neu, um eine niedrigere Datenbankspeicher-Einstellung anzuwenden; danach ist der Electrum-Server bereit.',
     30: 'Maximaler Adressverlauf',
     31: 'Höchstzahl der Transaktionen, die Fulcrum für eine einzelne Adresse meldet. Eine Adresse mit mehr Aktivität liefert einen leeren oder unvollständigen Verlauf, Kontostand und Münzbestand statt eines Fehlers, sodass eine Wallet mit dieser Adresse das Guthaben als fehlend anzeigt. Erhöhen Sie den Wert, wenn eine von Ihnen genutzte Adresse einen sehr langen Verlauf hat; die Grenze begrenzt Speicher- und Zeitaufwand einer einzelnen Anfrage.',
+    32: 'Blockheader werden in das aktuelle Format umgewandelt...',
   },
   pl_PL: {
     0: 'Uruchamianie Fulcrum',
@@ -102,6 +104,7 @@ export default {
     29: 'Fulcrum zakończył budowanie indeksu adresów. Uruchomi się jeden raz ponownie, aby zastosować niższe ustawienie pamięci bazy danych, po czym serwer Electrum będzie gotowy.',
     30: 'Maksymalna historia adresu',
     31: 'Największa liczba transakcji, jaką Fulcrum zgłosi dla pojedynczego adresu. Adres o większym ruchu zwraca pustą lub niepełną historię, saldo i listę monet zamiast błędu, więc portfel zawierający taki adres pokazuje środki jako brakujące. Zwiększ tę wartość, jeśli używany adres ma bardzo długą historię; limit ogranicza pamięć i czas, jakie może kosztować pojedyncze żądanie.',
+    32: 'Trwa konwersja nagłówków bloków do bieżącego formatu...',
   },
   fr_FR: {
     0: 'Démarrage de Fulcrum',
@@ -136,5 +139,6 @@ export default {
     29: "Fulcrum a terminé de construire son index d'adresses. Il redémarre une fois pour appliquer un réglage de mémoire de base de données plus bas, après quoi le serveur Electrum est prêt.",
     30: 'Historique maximal par adresse',
     31: "Nombre maximal de transactions que Fulcrum rapportera pour une seule adresse. Une adresse plus active que cette limite renvoie un historique, un solde et une liste de pièces vides ou partiels plutôt qu'une erreur, si bien qu'un portefeuille la contenant affiche les fonds comme absents. Augmentez cette valeur si une adresse que vous utilisez a un historique très long ; la limite borne la mémoire et le temps que peut coûter une seule requête.",
+    32: "Conversion des en-têtes de bloc vers le format actuel...",
   },
 } satisfies Record<string, LangDict>

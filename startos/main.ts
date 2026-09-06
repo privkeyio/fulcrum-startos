@@ -44,6 +44,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // var to keep track of sync progress
   let lastSyncLog: string | null = null
   let clearedUnreadableIndex = false
+  // Set while the block headers are being converted, which is the one startup path that keeps the
+  // Electrum port shut for a noticeable stretch without any sync progress to report yet.
+  let converting = false
 
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
@@ -96,6 +99,19 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }).catch(console.error)
           }
 
+          if (text.includes('block headers to the current format')) converting = true
+          // Clear on anything that means the conversion is no longer under way. Reporting it as still
+          // running when it has died would dress a permanently broken service up as a busy one, which is
+          // worse than the noisy failures this flag exists to quieten. A single substring, because stdout
+          // arrives as raw pipe chunks and a pair could be split across two of them.
+          if (
+            text.includes('block headers in ') || // finished
+            text.includes('Caught exception:') || // died, including any failure inside the conversion
+            text.includes('<Controller>') // got far enough to start indexing, so it is long done
+          ) {
+            converting = false
+          }
+
           const prefix = '<Controller>'
           if (text.startsWith(prefix)) {
             lastSyncLog = text.slice(prefix.length).trim()
@@ -115,6 +131,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
           )
 
           if (result.result === 'success') return result
+
+          if (converting) {
+            return {
+              result: 'loading',
+              message: i18n('Converting the block headers to the current format...'),
+            }
+          }
 
           if (lastSyncLog) {
             return {

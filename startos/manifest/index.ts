@@ -17,6 +17,9 @@ export const manifest = setupManifest({
         dockerBuild: {
           workdir: 'fulcrum',
           dockerfile: 'fulcrum/contrib/docker/Dockerfile',
+          // The submodule's .git is a file pointing outside the build context, so the build cannot
+          // work the commit out for itself and the binary would report an empty one.
+          buildArgs: { FULCRUM_GIT_COMMIT: { env: 'FULCRUM_GIT_COMMIT' } },
         },
       },
       arch: ['x86_64', 'aarch64'],

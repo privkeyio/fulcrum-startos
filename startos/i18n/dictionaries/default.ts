@@ -7,6 +7,7 @@ const dict = {
   'The Electrum interface is ready': 2,
   'The Electrum interface is not ready': 3,
   'Electrum interface not ready while syncing...': 4,
+  'Converting the block headers to the current format...': 32,
   'Sync Progress': 5,
   'Fulcrum is synced': 6,
   'Unknown status': 7,
