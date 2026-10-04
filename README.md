@@ -14,7 +14,7 @@
 - **Upstream repo:** <https://github.com/privkeyio/Fulcrum> (a fork of <https://github.com/cculianu/Fulcrum>)
 - **Wrapper repo:** <https://github.com/privkeyio/fulcrum-startos>
 
-This package builds Fulcrum from a fork carrying BLAKE2b proof-of-work hard fork support. See [BLAKE2b Hard Fork Support](#blake2b-hard-fork-support).
+This package builds Fulcrum from a fork that follows Bitcoin's change of proof-of-work algorithm to BLAKE2b. See [BLAKE2b Proof of Work](#blake2b-proof-of-work).
 
 ---
 
@@ -30,7 +30,7 @@ This package builds Fulcrum from a fork carrying BLAKE2b proof-of-work hard fork
 - [Tasks](#tasks)
 - [Health Checks](#health-checks)
 - [Backups and Restore](#backups-and-restore)
-- [BLAKE2b Hard Fork Support](#blake2b-hard-fork-support)
+- [BLAKE2b Proof of Work](#blake2b-proof-of-work)
 - [Limitations and Differences](#limitations-and-differences)
 - [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
 
@@ -174,9 +174,9 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 **A restore therefore rebuilds the index from scratch**, which takes as long as the original build did and needs Bitcoin present and synced first. What comes back is the configuration, not the work.
 
-## BLAKE2b Hard Fork Support
+## BLAKE2b Proof of Work
 
-Stock Fulcrum assumes every block header is 80 bytes and hashes it with SHA256d. The BLAKE2b hard fork changes the proof of work at an activation height: from that block on, headers are 164 bytes and hashed with BLAKE2b, signalled by the top bit of the version field.
+Stock Fulcrum assumes every block header is 80 bytes and hashes it with SHA256d. The proof of work changes at an activation height: from that block on, headers are 164 bytes and hashed with BLAKE2b, signalled by the top bit of the version field.
 
 This is one chain with continuous history, not a second chain. Every block below the activation height keeps its original 80-byte SHA256d header permanently, so both header forms coexist in the same index and each must be hashed with its own algorithm. Stock Fulcrum stops at the activation block rather than serving wrong data.
 

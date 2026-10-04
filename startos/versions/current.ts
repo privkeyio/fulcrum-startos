@@ -3,13 +3,13 @@ import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 export const current = VersionInfo.of({
   version: '#blake:2.1.2:0',
   releaseNotes: {
-    en_US: `Fulcrum with support for the BLAKE2b proof-of-work hardfork.
+    en_US: `Fulcrum that follows Bitcoin's change of proof-of-work algorithm to BLAKE2b.
 
-The hardfork changes the proof of work at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The standard build cannot parse the new form and stops at the activation block rather than serving wrong data. This one reads both.
+The proof of work changes at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The standard build cannot parse the new form and stops at the activation block rather than serving wrong data. This one reads both.
 
 ## Requires Bitcoin Knots
 
-Only Knots schedules the hardfork, so only Knots serves the extended headers this build exists to index. It depends on the Knots flavor of Bitcoin specifically; a standard Bitcoin node no longer satisfies it.
+Only Knots schedules the change, so only Knots serves the extended headers this build exists to index. It depends on the Knots flavor of Bitcoin specifically; a standard Bitcoin node no longer satisfies it.
 
 ## Switching to this build
 
@@ -21,7 +21,7 @@ Releases before this one padded every header out to 164 bytes and stamped the he
 
 ## Switching back is not offered
 
-Once the chain has activated the hardfork, the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,
+Past the activation height the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,
   },
   migrations: {
     up: async () => {},
