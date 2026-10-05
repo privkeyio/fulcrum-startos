@@ -1,11 +1,19 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '#blake:2.1.2:0',
+  version: '#blake:2.1.3:0',
   releaseNotes: {
     en_US: `Fulcrum that follows Bitcoin's change of proof-of-work algorithm to BLAKE2b.
 
 The proof of work changes at an activation height: from that block on, block headers are 164 bytes and hashed with BLAKE2b rather than 80 bytes and SHA256d. History is continuous, so blocks below that height keep their original headers and both forms coexist in one index. The standard build cannot parse the new form and stops at the activation block rather than serving wrong data. This one reads both.
+
+## What changed
+
+Builds Fulcrum 2.1.3, which fixes a long-standing off-by-1 in the header merkle cache. It broke \`blockchain.block.header\` for every \`cp_height\` on a cache level boundary, so a wallet asking for a checkpoint proof at one of those heights got an internal error rather than a root.
+
+The server now identifies itself as \`Fulcrum 2.1.3+blake2b\`. Past the activation height it serves a chain the standard build does not, and a wallet had no way to tell the two apart.
+
+Nothing on disk changes, so this is an ordinary update with no resync.
 
 ## Requires Bitcoin Knots
 
