@@ -1,7 +1,7 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '#blake:2.1.3:0',
+  version: '#blake:2.1.3:1',
   releaseNotes: {
     en_US: `Fulcrum that follows Bitcoin's change of proof-of-work algorithm to BLAKE2b.
 
