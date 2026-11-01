@@ -50,10 +50,10 @@ Saving Configure restarts Fulcrum, because it only reads its configuration at st
 - Peer discovery and network announcement are disabled; this server does not advertise itself to the Electrum peer-to-peer network.
 - The administrative RPC interface is not exposed.
 
-## BLAKE2b hard fork
+## BLAKE2b proof of work
 
-This build of Fulcrum understands the BLAKE2b proof-of-work hard fork's 164-byte block headers as well as the original 80-byte ones, so it keeps indexing across the activation height instead of stopping there. The chain's history is continuous: blocks mined before the activation keep their original 80-byte headers, and both forms sit in the same index. Until your node reaches that height, nothing changes for you.
+This build of Fulcrum understands the 164-byte block headers Bitcoin uses since its change of proof of work to BLAKE2b as well as the original 80-byte ones, so it keeps indexing across the activation height instead of stopping there. The chain's history is continuous: blocks mined before the activation keep their original 80-byte headers, and both forms sit in the same index. Until your node reaches that height, nothing changes for you.
 
-Because the header format on disk changed, Fulcrum rebuilds its address index from scratch the first time it starts on this version. That is a local rebuild forced by the storage layout, not a re-download of a different chain, but it takes as long as the original sync did and wallets cannot query it until it finishes.
+Switching from the standard build keeps the existing index, with no resync. An index written by an early release of this package, which stored headers in a form neither build reads, is converted in place on the first start, which takes seconds. If that conversion cannot complete, the index is rebuilt from scratch, which takes as long as the original sync did.
 
 Note that your wallet needs its own support for the new header format. This server will hand it the post-activation headers correctly, but a wallet that has not been updated will reject them.
