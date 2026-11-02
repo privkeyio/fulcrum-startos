@@ -37,4 +37,4 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Prefill the Configure form with only the keys its spec declares — never spread the whole config.** `fulcrum.conf`'s `banner` key is the _path_ to `banner.txt`, so a spread puts that path in the textarea and the next save writes it into the banner.
 - **`main` must `const` the config _after_ writing `bitcoind` into it**, or that write registers as a change and the daemon restarts itself on every start.
 - **`peering` and `announce` stay pinned false** — either would advertise this server to the public Electrum network.
-- **The bitcoind version range is per-major, not a floor.** It pins the revision on each Core line that carries the fixes Fulcrum needs — widening it to a single `>=` would admit older revisions on the newer lines.
+- **The bitcoind version range is a Knots-flavor floor, unlike Start9's per-major Core ranges.** Merging Start9's `dependencies.ts` brings back Core lines that never serve extended headers, so keep `>=#knots:...` when resolving it.

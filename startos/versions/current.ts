@@ -1,4 +1,10 @@
-import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import { IMPOSSIBLE, MigrationOpts, VersionInfo } from '@start9labs/start-sdk'
+import { sdk } from '../sdk'
+
+// The unused 0.3.5 host. Earlier releases of this flavor never retired it.
+const retireElectrumHost = async ({ effects }: MigrationOpts) => {
+  await sdk.MultiHost.of(effects, 'electrum').retire()
+}
 
 export const current = VersionInfo.of({
   version: '#blake:2.1.4:0',
@@ -13,7 +19,13 @@ Builds Fulcrum 2.1.4. Address history lookups now read uncached transaction hash
 
 The server identifies itself as \`Fulcrum 2.1.4+blake2b\`.
 
-Nothing on disk changes, so this is an ordinary update with no resync.
+Adds a Reindex action, which deletes the address index and rebuilds it from Bitcoin when Fulcrum keeps exiting on a corrupted database, without uninstalling.
+
+While Bitcoin is still downloading the blocks beneath a UTXO snapshot, Sync Progress now says so instead of showing Fulcrum's failure lines.
+
+The unused "electrum" host left over from StartOS 0.3.5 is removed, along with any domain attached to it. Attach domains to Electrum (SSL) instead.
+
+Nothing in the index changes, so this is an ordinary update with no resync.
 
 ## Requires Bitcoin Knots
 
@@ -32,17 +44,17 @@ An index written by an early release of this package padded every header out to 
 Past the activation height the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,
   },
   migrations: {
-    up: async () => {},
+    up: retireElectrumHost,
     //Refuse the reverse switch. Past the activation height the index holds extended headers the
     //unflavored build cannot read, so it would fail to start with no way to recover from the UI.
     down: IMPOSSIBLE,
     other: {
       //Arriving from the unflavored build. Its index is readable as-is below the activation height,
-      //so there is nothing to migrate and no resync.
+      //so there is no resync.
       //No `down`: omitting it leaves the reverse switch unavailable, which is what the index requires
       //past the activation height.
       ['^2']: {
-        up: async () => {},
+        up: retireElectrumHost,
       },
     },
   },
