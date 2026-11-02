@@ -16,9 +16,9 @@
 
 ## Getting set up
 
-Fulcrum requires Bitcoin with `prune=0`, `txindex=true`, and ZMQ enabled. StartOS posts a critical task on Bitcoin to apply these settings if they are not already in place.
+Fulcrum requires the Knots flavor of Bitcoin, with `prune=0`, `txindex=true`, and ZMQ enabled. StartOS posts a critical task on Bitcoin to apply these settings if they are not already in place.
 
-1. Install Bitcoin if you have not already.
+1. Install the Knots flavor of Bitcoin if you have not already. A standard Bitcoin node does not satisfy this package.
 2. Install Fulcrum. Resolve any critical task that appears on Bitcoin to enforce the required settings.
 3. Start Fulcrum. The initial index build takes many hours and pulls roughly 180 GB of data on top of the Bitcoin volume — plan for at least 1 TB of disk, ideally 2 TB.
 4. Watch the **Sync Progress** health check on the service dashboard. It shows Fulcrum's current indexing progress and reports **Fulcrum is synced** once the Electrum interface is ready to serve clients.

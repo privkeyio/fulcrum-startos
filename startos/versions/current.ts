@@ -1,8 +1,22 @@
 import { IMPOSSIBLE, MigrationOpts, VersionInfo } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
+import {
+  defaultDbMem,
+  fulcrumConf,
+  syncedDbMem,
+} from '../fileModels/fulcrum.conf'
+import { storeJson } from '../fileModels/store.json'
 
-// The unused 0.3.5 host. Earlier releases of this flavor never retired it.
-const retireElectrumHost = async ({ effects }: MigrationOpts) => {
+// The standard build's 2.1.1:13 and 2.1.3:1 steps, which this flavor's earlier releases never ran.
+const catchUpWithStandardBuild = async ({ effects }: MigrationOpts) => {
+  await sdk.action.clearTask(effects, 'bitcoind:other-config')
+  if ((await fulcrumConf.read().once())?.db_mem === undefined) {
+    await fulcrumConf.merge(effects, {
+      db_mem: (await storeJson.read().once())?.syncNotified
+        ? syncedDbMem()
+        : defaultDbMem(),
+    })
+  }
   await sdk.MultiHost.of(effects, 'electrum').retire()
 }
 
@@ -44,7 +58,7 @@ An index written by an early release of this package padded every header out to 
 Past the activation height the index contains extended headers that the standard build cannot read; it would stop on startup with a magic bytes mismatch and could not be recovered from the interface. Returning to the standard build is therefore blocked. To go back, remove this and reinstall the standard build, which rebuilds its index from scratch.`,
   },
   migrations: {
-    up: retireElectrumHost,
+    up: catchUpWithStandardBuild,
     //Refuse the reverse switch. Past the activation height the index holds extended headers the
     //unflavored build cannot read, so it would fail to start with no way to recover from the UI.
     down: IMPOSSIBLE,
@@ -54,7 +68,7 @@ Past the activation height the index contains extended headers that the standard
       //No `down`: omitting it leaves the reverse switch unavailable, which is what the index requires
       //past the activation height.
       ['^2']: {
-        up: retireElectrumHost,
+        up: catchUpWithStandardBuild,
       },
     },
   },

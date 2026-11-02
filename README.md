@@ -202,7 +202,7 @@ This build reads both forms, hashes each with the right algorithm, and serves th
 
 Two consequences worth knowing:
 
-- **Switching from the standard build keeps the existing index, with no resync.** The headers table keeps the same record size and magic, and only the 84-byte tail of an extended header is stored separately. An index written by an early release of this package, which stored headers in a form neither build reads, is converted in place on the first start, which takes seconds. If that conversion cannot complete, the index is rebuilt from scratch, which takes as long as the original sync did.
+- **Switching from the standard build keeps the existing index, with no resync.** The headers table keeps the same record size and magic, and only the 84-byte tail of an extended header is stored separately. An index written by an early release of this package, which stored headers in a form neither build reads, is converted in place on the first start, which takes seconds. If that conversion cannot complete, or the index was written by a build this one cannot read, `main` discards it the way [Reindex](#reindex) does, before Fulcrum is respawned, and the rebuild takes as long as the original sync did. The discard keys only on Fulcrum's log lines from before its listener starts, since clients can write log lines after that.
 - **Wallets need their own support.** `blockchain.block.header` and `blockchain.block.headers` return whatever size the header actually is. A wallet that splits the concatenated `block.headers` blob at a fixed 80-byte stride, or that checks proof of work as SHA256d, will not follow the chain past the activation height no matter what this server returns.
 
 ## Limitations and Differences
