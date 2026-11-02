@@ -9,7 +9,7 @@ The proof of work changes at an activation height: from that block on, block hea
 
 ## What changed
 
-Builds Fulcrum 2.1.4. Address history lookups now resolve transaction hashes that are not cached on a small pool of threads instead of one database read at a time, so a wallet with a long history loads faster.
+Builds Fulcrum 2.1.4. Address history lookups now read uncached transaction hashes on a small pool of threads rather than one database read at a time, so a wallet with a long history loads faster.
 
 The server identifies itself as \`Fulcrum 2.1.4+blake2b\`.
 
@@ -25,7 +25,7 @@ This is a flavor of the same package rather than a separate one, so it replaces 
 
 ## Coming from an earlier release of this package
 
-Releases before this one padded every header out to 164 bytes and stamped the headers table with their own magic, which neither the standard build nor this one can read. Only that table differed, so such an index is converted on the first start rather than being rebuilt: a chain the length of mainnet converts in seconds against the days a rebuild costs, and the address index, the utxo set and everything else are kept untouched. Should the conversion not complete, the index is discarded and rebuilt rather than leaving the service unable to start.
+An index written by an early release of this package padded every header out to 164 bytes and stamped the headers table with its own magic, which neither the standard build nor this one can read. Only that table differed, so such an index is converted on the first start rather than being rebuilt: a chain the length of mainnet converts in seconds against the days a rebuild costs, and the address index, the utxo set and everything else are kept untouched. Should the conversion not complete, the index is discarded and rebuilt rather than leaving the service unable to start.
 
 ## Switching back is not offered
 

@@ -42,8 +42,8 @@ The image is built from source out of the `fulcrum` submodule at pack time, usin
 
 | Property      | Value                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| Image         | built from `fulcrum/` submodule (privkeyio/Fulcrum, `master`)      |
-| Architectures | x86_64                                                            |
+| Image         | built from `fulcrum/` submodule (privkeyio/Fulcrum, `master`)     |
+| Architectures | x86_64, aarch64                                                   |
 | Command       | `Fulcrum` against the config file, with log timestamps suppressed |
 | Subcontainer  | `primary-sub` — the `primary` daemon, and the one to `attach` to  |
 
@@ -176,15 +176,15 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 ## BLAKE2b Proof of Work
 
-Stock Fulcrum assumes every block header is 80 bytes and hashes it with SHA256d. The proof of work changes at an activation height: from that block on, headers are 164 bytes and hashed with BLAKE2b, signalled by the top bit of the version field.
+Stock Fulcrum assumes every block header is 80 bytes and hashes it with SHA256d. The proof of work changes at an activation height: from that block on, headers are 164 bytes and hashed with BLAKE2b, signaled by the top bit of the version field.
 
 This is one chain with continuous history, not a second chain. Every block below the activation height keeps its original 80-byte SHA256d header permanently, so both header forms coexist in the same index and each must be hashed with its own algorithm. Stock Fulcrum stops at the activation block rather than serving wrong data.
 
-This build reads both forms, hashes each with the right algorithm, and serves them unchanged over the Electrum protocol. Below the activation height there is no behavioural difference.
+This build reads both forms, hashes each with the right algorithm, and serves them unchanged over the Electrum protocol. Below the activation height there is no behavioral difference.
 
 Two consequences worth knowing:
 
-- **The index is rebuilt from scratch on this version.** Header records grew from 80 to 164 bytes, so the on-disk format changed and the header table's magic was bumped. An index written by an earlier version fails to open with an explicit error instead of being misread. This is a local index rebuild forced by the storage format, not a re-download of a different chain, but it still costs a full resync on first start.
+- **Switching from the standard build keeps the existing index, with no resync.** The headers table keeps the same record size and magic, and only the 84-byte tail of an extended header is stored separately. An index written by an early release of this package, which stored headers in a form neither build reads, is converted in place on the first start, which takes seconds. If that conversion cannot complete, the index is rebuilt from scratch, which takes as long as the original sync did.
 - **Wallets need their own support.** `blockchain.block.header` and `blockchain.block.headers` return whatever size the header actually is. A wallet that splits the concatenated `block.headers` blob at a fixed 80-byte stride, or that checks proof of work as SHA256d, will not follow the chain past the activation height no matter what this server returns.
 
 ## Limitations and Differences
@@ -202,7 +202,7 @@ Two consequences worth knowing:
 
 ```yaml
 package_id: fulcrum
-image: cculianu/fulcrum
+image: built from the fulcrum submodule (privkeyio/Fulcrum)
 architectures:
   - x86_64
   - aarch64
