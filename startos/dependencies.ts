@@ -18,7 +18,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   return {
     bitcoind: {
       kind: 'running',
-      // Only Knots schedules the hard fork, so only Knots serves the extended headers this build exists to
+      // Only Knots schedules the change of proof of work, so only Knots serves the extended headers this build exists to
       // index. Requiring the flavor keeps it from being pointed at a node that will never produce them.
       versionRange: '>=#knots:29.4.1:4',
       healthChecks: ['bitcoind'],
