@@ -112,6 +112,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             unreadableIndex = false
             await writeFile(reindexRequest, '')
             await discardIndex(effects)
+            store.syncNotified = false
             await rm(reindexRequest, { force: true })
           }
           let pending = ''
