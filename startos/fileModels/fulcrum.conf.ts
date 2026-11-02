@@ -17,7 +17,7 @@ const iniNumber = z
   .optional()
   .catch(undefined)
 
-export const shape = z.object({
+export const shape = z.looseObject({
   datadir: z.literal('/data').catch('/data'),
   bitcoind: z.string().optional().catch(undefined),
   rpcuser: z.literal('').catch(''),

@@ -2,8 +2,8 @@ import { utils } from '@start9labs/start-sdk'
 import { rm } from 'fs/promises'
 import { sdk } from '../sdk'
 import { i18n } from '../i18n'
-import { defaultDbMem, fulcrumConf } from '../file-models/fulcrum.conf'
-import { bannerTxt } from '../file-models/banner.txt'
+import { defaultDbMem, fulcrumConf } from '../fileModels/fulcrum.conf'
+import { bannerTxt } from '../fileModels/banner.txt'
 
 const { InputSpec, Value } = sdk
 
@@ -23,18 +23,18 @@ const inputSpec = InputSpec.of({
   bitcoind_timeout: Value.number({
     name: i18n('Bitcoin RPC Timeout (seconds)'),
     description: i18n(
-      'Controls how long Fulcrum waits for responses from Bitcoin RPC before failing a request.',
+      'Raise this if the logs show "bitcoind request timed out", which can happen while Bitcoin is still syncing or under heavy load.',
     ),
     required: false,
     default: null,
     integer: true,
     min: 30,
-    footnote: `${i18n('Default')}: 30 seconds`,
+    footnote: `${i18n('Default')}: 30`,
   }),
   bitcoind_clients: Value.number({
     name: i18n('Bitcoin RPC Clients'),
     description: i18n(
-      'Number of concurrent RPC client connections to Bitcoin.',
+      'More clients can speed up the index build, but only if Bitcoin accepts as many concurrent RPC requests (its rpcthreads setting). Keep it at or below the number of CPU cores.',
     ),
     required: false,
     default: null,
@@ -45,7 +45,7 @@ const inputSpec = InputSpec.of({
   worker_threads: Value.number({
     name: i18n('Worker Threads (0 for auto)'),
     description: i18n(
-      'Set the number of Fulcrum worker threads. Use 0 to allow Fulcrum to choose automatically.',
+      '0 uses every CPU core, which keeps Fulcrum most responsive. Set a number to cap how much of the CPU Fulcrum can take.',
     ),
     required: false,
     default: null,

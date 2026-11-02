@@ -1,8 +1,20 @@
 import { autoconfig } from 'bitcoin-core-startos/startos/actions/config/autoconfig'
 import { i18n } from './i18n'
+import { bitcoindDescription } from './manifest/i18n'
 import { sdk } from './sdk'
 
-export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
+const bitcoind = sdk.Dependency.required('bitcoind', {
+  description: bitcoindDescription,
+  metadata: {
+    title: 'Bitcoin',
+    icon: 'https://raw.githubusercontent.com/Start9Labs/bitcoin-core-startos/refs/heads/30.x/dep-icon.svg',
+  },
+  kind: 'running',
+  // Only Knots schedules the change of proof of work, so only Knots serves the extended headers this build exists to
+  // index. Requiring the flavor keeps it from being pointed at a node that will never produce them.
+  versionRange: '>=#knots:29.4.1:4',
+  healthChecks: ['bitcoind'],
+}).withInit(async (effects) => {
   await sdk.action.createTask(effects, 'bitcoind', autoconfig, 'critical', {
     input: {
       kind: 'partial',
@@ -14,14 +26,6 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
     ),
     when: { condition: 'input-not-matches', once: false },
   })
-
-  return {
-    bitcoind: {
-      kind: 'running',
-      // Only Knots schedules the change of proof of work, so only Knots serves the extended headers this build exists to
-      // index. Requiring the flavor keeps it from being pointed at a node that will never produce them.
-      versionRange: '>=#knots:29.4.1:4',
-      healthChecks: ['bitcoind'],
-    },
-  }
 })
+
+export const dependencies = sdk.Dependencies.of().addDependency(bitcoind)

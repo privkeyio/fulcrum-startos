@@ -59,6 +59,8 @@ One volume, plus a read-only view of the Bitcoin node's.
 
 Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoind`, which is how Fulcrum reads the RPC cookie — no credential is stored here.
 
+A pending Reindex is an empty `reindex.request` file beside them. `main` removes it before Fulcrum starts, once the index is gone — see [Actions](#actions).
+
 The address index is the large item: it is rebuilt from the chain rather than backed up, as described under [Backups and Restore](#backups-and-restore).
 
 ## File Models
@@ -81,7 +83,7 @@ Two of those are overrides rather than wiring: **`peering` and `announce` are bo
 
 **Yours, through the Configure action:** the RPC timeout and client count, worker threads, `db_max_open_files`, and `max_history`.
 
-**Seeded, then reclaimed once:** `db_mem` is set at install to a quarter of system RAM, capped — a large cache makes the initial index build much faster. When the index finishes, the package lowers it, **but only if the value is still exactly what it seeded.** A value you chose in Configure is left alone.
+**Seeded, then reclaimed once:** `db_mem` is set at install to a quarter of system RAM, capped — a large cache makes the initial index build much faster. When the index finishes, the package lowers it, **but only if the value is still exactly what it seeded.** A value you chose in Configure is left alone, with two exceptions after a reindex, because the package decides by value rather than by who set it: a value equal to the lowered one is put back to the seeded value for the rebuild, and a value equal to the seeded one is lowered when the rebuild finishes, as after the first build.
 
 Fulcrum reads this file only at startup, so every change to it restarts the daemon.
 
@@ -113,13 +115,15 @@ One interface, and what it publishes is worth reading closely.
 | -------------- | ------ | ---- | ---------------------- | ------------------------------ |
 | Electrum (SSL) | `main` | api  | 50002 TLS, 50001 plain | The Electrum protocol endpoint |
 
-StartOS terminates TLS at the edge and forwards plaintext to Fulcrum, so the TLS address is the one to give a wallet. The plaintext port is still allocated, but it is reachable only over the local service bridge — which is how a dependent on this box connects — and from nowhere else. Off the box, the TLS address is all there is. Clients that accept or pin an unrecognised certificate connect as-is; the Electrum desktop wallet rejects the device's CA chain on every address and needs the client-side step documented at <https://docs.start9.com/bitcoin-guides/connecting-wallets>.
+StartOS terminates TLS at the edge and forwards plaintext to Fulcrum, so the TLS address is the one to give a wallet. The plaintext port is still allocated, but no LAN or WAN gateway forwards it: it is reachable over the local service bridge — which is how a dependent on this box connects — and, indirectly, over a Tor address added with its SSL toggle off, since the Tor service points an onion at whichever bridge address that toggle selects. Every LAN, `.local` and domain address is the TLS one. Clients that accept or pin an unrecognised certificate connect as-is; the Electrum desktop wallet rejects the device's CA chain on every address and needs the client-side step documented at <https://docs.start9.com/bitcoin-guides/connecting-wallets>.
+
+A server carried over from StartOS 0.3.5 also had an `electrum` host from the old package. `2.1.3:1` retires it on update; its addresses, including any `.onion`, are not moved to `main`.
 
 The interface overrides its scheme to `ssl` or `tcp` so each address renders as something a wallet can consume; left alone, both would appear as a bare host and port with nothing marking which is which.
 
 ## Installation and First-Run Flow
 
-Install writes the config with `db_mem` sized to the machine and starts the daemon. No credential is generated and no local task is raised — but the service cannot do its job until two things are true.
+Install writes the config with `db_mem` sized to the machine. Start Fulcrum after installation to begin indexing. No credential is generated and no local task is raised — but the service cannot do its job until two things are true.
 
 1. **Bitcoin must be configured for it.** Pruning off, `txindex` on, ZeroMQ on. This is raised as a `critical` task on Bitcoin, not here.
 2. **The index has to be built.** Fulcrum reads the chain and builds its own address index, which takes hours and is the bulk of first-run time. The Electrum port does not open until it finishes, so the service legitimately looks unready throughout.
@@ -128,7 +132,7 @@ When the index completes, a Sync Complete notification is posted; if `db_mem` is
 
 ## Actions
 
-One action.
+Two actions: the settings, and the recovery for a corrupted index.
 
 ### Configure
 
@@ -137,8 +141,18 @@ Sets the banner and Fulcrum's performance parameters.
 - **What it changes:** `banner.txt`, and the tunable keys in `fulcrum.conf`.
 - **Cost:** seconds, then a restart — Fulcrum only reads its config at startup.
 - **Repeat safety:** idempotent; the form is pre-filled from the current files.
-- **Worth knowing about `db_mem`:** setting it here takes it out of the package's hands. The post-sync reduction only applies to the value install seeded, so a value you choose persists — including through the index build, where a large one is a real speed-up and a small one is a real slow-down.
+- **Worth knowing about `db_mem`:** setting it here takes it out of the package's hands. The post-sync reduction only applies to the value install seeded, so a value you choose persists — including through the index build, where a large one is a real speed-up and a small one is a real slow-down. The exceptions come with a reindex, which cannot tell two values from the package's own: one equal to the lowered value is raised for the rebuild, and one equal to the seeded value is lowered when the rebuild finishes.
 - **Worth knowing about `max_history`:** an address with more transactions than this returns an empty or partial history rather than an error, so a wallet holding such an address shows the funds as missing. Raise it if that happens.
+
+### Reindex
+
+Deletes the address index so Fulcrum rebuilds it from Bitcoin — the in-place replacement for uninstalling and reinstalling, which is what Fulcrum's own corruption errors ("delete the datadir and resynch") otherwise leave the user with.
+
+- **When to run it:** Fulcrum keeps exiting and its logs report a corrupted database — a RocksDB `Corruption:` error, or Fulcrum's own message to delete the datadir and resynch — or say it was killed in the middle of committing a block. Not while Bitcoin is still syncing: Fulcrum waits silently at Bitcoin's tip, which looks like a fault and is not one. A RocksDB error that clears on a restart does not need it either. Input/output errors point at the drive: a rebuild on failing storage fails the same way.
+- **What it changes:** creates an empty `reindex.request` in the volume root and restarts Fulcrum if it is running. On the next start, before anything else, `main` deletes `fulc2_db` and `latch`, puts `db_mem` back to the seeded value if it is still exactly the lowered one, clears `syncNotified`, and removes the marker last, so the rebuild runs, is reported, and is notified as a first run, and an interrupted delete repeats. `fulcrum.conf`, `banner.txt` and `store.json` are kept.
+- **Cost:** as long as the first build took — hours to days — with the Electrum port closed throughout, so dependents and wallets have no server.
+- **Repeat safety:** a second run before the next start changes nothing; a run after the rebuild has started starts it over.
+- **What happens next:** if Fulcrum is stopped, nothing happens until it is started. Progress shows in Sync Progress, as on a first run.
 
 ## Tasks
 
@@ -161,9 +175,11 @@ Two checks, and they differ in what they mean during the index build.
 | `primary` "Electrum (SSL)"      | The Electrum port is listening; reports `loading` while syncing |
 | `sync-progress` "Sync Progress" | Fulcrum's own progress output, read from its logs               |
 
-**Neither failing during the initial index build is a fault.** The Electrum port genuinely does not open until the index is complete, so `primary` reports `loading` rather than failure for as long as Fulcrum is logging progress. `sync-progress` surfaces Fulcrum's own progress line, so it is the one to read for how far along the build is; it reports success once the port opens.
+**Neither failing during the initial index build is a fault.** The Electrum port genuinely does not open until the index is complete, so `primary` reports `loading` rather than failure for as long as Fulcrum is logging progress. `sync-progress` shows Fulcrum's latest `<Controller>` line, so it is the one to read for how far along the build is; it reports success once the port opens.
 
-A `primary` failure with no sync progress being logged is the real fault case — the daemon is not running or not reaching Bitcoin.
+A `primary` failure with no sync progress being logged is the real fault case — the daemon is not running. A Fulcrum that cannot reach Bitcoin keeps running and logs `<Controller> Waiting for bitcoind...`, so during the index build that is what Sync Progress shows.
+
+**A Bitcoin bootstrapped from a UTXO snapshot cannot serve the blocks beneath the snapshot until its background validation downloads them.** Fulcrum indexes from genesis, so it requests one, gets `Block not available (not fully downloaded)` (`Block not found on disk` on Bitcoin Core 28), abandons that sync attempt, and retries from its own tip every 2 seconds, following Bitcoin's download up. While such an error has been logged in the last 30 seconds, Sync Progress reports **Waiting for Bitcoin to provide historical blocks** instead of the failure lines. The same message on a node that never loaded a snapshot means Bitcoin's block files are damaged; its Reindex Blockchain action repairs them.
 
 ## Backups and Restore
 
@@ -192,8 +208,8 @@ Two consequences worth knowing:
 1. **Peering and announcement are disabled.** Fulcrum will not join the public Electrum server network or advertise itself.
 2. **The index is not backed up**, and a restore rebuilds it.
 3. **Bitcoin must run unpruned with `txindex` and ZeroMQ enabled**, which is a change to Bitcoin's configuration, requested as a task on that service.
-4. **`db_mem` is managed until you set it**, after which it is yours — including the post-sync reduction, which no longer applies.
-5. **The plaintext Electrum port is bridge-only.** Off the box, only the TLS address is reachable.
+4. **`db_mem` is managed until you set it**, after which it is yours — including the post-sync reduction, which no longer applies. A reindex makes two exceptions, because it cannot tell them from the package's own values: a value equal to the lowered one is raised for the rebuild, and one equal to the seeded one is lowered when the rebuild finishes.
+5. **The plaintext Electrum port gets no LAN or WAN forward.** Every LAN, `.local` and domain address is the TLS one; a Tor address added with SSL off is the one way to reach the plaintext port from elsewhere.
 6. **No riscv64 build.** x86_64 and aarch64 only.
 
 ---
@@ -221,6 +237,7 @@ interfaces:
   main: { type: api, port: 50002 } # TLS at the edge; 50001 plaintext is bridge-only
 actions:
   - configure
+  - reindex # deletes fulc2_db and latch on the next start
 tasks:
   - { action: autoconfig, severity: critical } # on bitcoind: unpruned, txindex, ZMQ
 health_checks:

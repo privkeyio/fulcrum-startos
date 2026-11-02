@@ -7,13 +7,14 @@ const dict = {
   'The Electrum interface is ready': 2,
   'The Electrum interface is not ready': 3,
   'Electrum interface not ready while syncing...': 4,
-  'Converting the block headers to the current format...': 32,
+  'Converting the block headers to the current format...': 38,
   'Sync Progress': 5,
   'Fulcrum is synced': 6,
   'Unknown status': 7,
   'Sync Complete': 27,
   'Fulcrum has finished building its address index. The Electrum server is ready.': 28,
   'Fulcrum has finished building its address index. It is restarting once to apply a lower database memory setting, after which the Electrum server is ready.': 29,
+  'Waiting for Bitcoin to provide historical blocks': 37,
   // interfaces.ts
   'The main interface for accessing Fulcrum via Electrum protocol through SSL': 8,
   // actions/configure.ts
@@ -23,11 +24,11 @@ const dict = {
   'Custom banner text displayed to connecting Electrum clients. Leave empty to use the Fulcrum default banner.': 12,
   'ASCII art welcome! Variables like $SERVER_VERSION are supported.': 13,
   'Bitcoin RPC Timeout (seconds)': 14,
-  'Controls how long Fulcrum waits for responses from Bitcoin RPC before failing a request.': 15,
+  'Raise this if the logs show "bitcoind request timed out", which can happen while Bitcoin is still syncing or under heavy load.': 15,
   'Bitcoin RPC Clients': 16,
-  'Number of concurrent RPC client connections to Bitcoin.': 17,
+  'More clients can speed up the index build, but only if Bitcoin accepts as many concurrent RPC requests (its rpcthreads setting). Keep it at or below the number of CPU cores.': 17,
   'Worker Threads (0 for auto)': 18,
-  'Set the number of Fulcrum worker threads. Use 0 to allow Fulcrum to choose automatically.': 19,
+  '0 uses every CPU core, which keeps Fulcrum most responsive. Set a number to cap how much of the CPU Fulcrum can take.': 19,
   'Database Memory (MB)': 20,
   'Upper bound on memory used by the RocksDB cache. Set at install for the index build and lowered automatically once the index is complete. Raise it for faster queries at the cost of RAM.': 21,
   'Database Max Open Files': 22,
@@ -38,6 +39,12 @@ const dict = {
   // dependencies.ts
   'Pruning must be disabled, txindex and ZMQ must be enabled for Fulcrum to function properly.': 25,
   Default: 26,
+  // actions/reindex.ts
+  Reindex: 32,
+  'Delete the address index and rebuild it from Bitcoin. Use this only if the index is corrupted: Fulcrum keeps crashing and its logs report a corrupted database, either a "Corruption" error or a message to delete the datadir and resync. If Bitcoin is still syncing, or a restart has not been tried, do that first.': 33,
+  'Fulcrum and every service that uses it are unavailable for as long as the first index build took, which can be several days. If the logs show input/output errors, check your drive first: a rebuild on a failing drive fails the same way.': 34,
+  'Fulcrum is restarting. It deletes its index and rebuilds it from Bitcoin, which can take several days.': 35,
+  'Fulcrum deletes its index and rebuilds it from Bitcoin the next time it starts.': 36,
 } as const
 
 export type I18nKey = keyof typeof dict
