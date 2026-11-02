@@ -2,8 +2,7 @@
 
 ## Documentation
 
-- [Connecting a wallet](https://docs.start9.com/bitcoin-guides/connecting-wallets) — the Start9 guide to pointing a wallet at your own Electrum server: the certificate, SSL, Tor, and where the setting lives in each wallet.
-- [Bitcoin wallets](https://docs.start9.com/bitcoin-guides/bitcoin-wallets) — which wallets work with an Electrum server, on which platforms.
+- [Start9 Bitcoin Guides](https://docs.start9.com/bitcoin-guides/) — pointing a wallet at your own Electrum server — certificates, SSL and Tor — which wallets work, and archival versus pruned Bitcoin nodes.
 - [Fulcrum documentation](https://github.com/cculianu/Fulcrum/tree/master/doc) — the upstream documentation covering configuration, operation, and tuning.
 
 ## Requirements
@@ -17,12 +16,12 @@
 
 ## Getting set up
 
-Fulcrum requires Bitcoin with `prune=0`, `txindex=true`, and ZMQ enabled. StartOS posts a critical task on Bitcoin to apply these settings if they are not already in place.
+Fulcrum requires the Knots flavor of Bitcoin, with `prune=0`, `txindex=true`, and ZMQ enabled. StartOS posts a critical task on Bitcoin to apply these settings if they are not already in place.
 
-1. Install Bitcoin if you have not already.
+1. Install the Knots flavor of Bitcoin if you have not already. A standard Bitcoin node does not satisfy this package.
 2. Install Fulcrum. Resolve any critical task that appears on Bitcoin to enforce the required settings.
 3. Start Fulcrum. The initial index build takes many hours and pulls roughly 180 GB of data on top of the Bitcoin volume — plan for at least 1 TB of disk, ideally 2 TB.
-4. Watch the **Sync Progress** health check on the service dashboard. It reports live progress from Fulcrum's controller and switches to **Synced** once the Electrum interface is ready to serve clients.
+4. Watch the **Sync Progress** health check on the service dashboard. It shows Fulcrum's current indexing progress and reports **Fulcrum is synced** once the Electrum interface is ready to serve clients.
 
 ## Using Fulcrum
 
@@ -30,7 +29,9 @@ Fulcrum requires Bitcoin with `prune=0`, `txindex=true`, and ZMQ enabled. StartO
 
 Open the **Electrum (SSL)** interface and copy an address into your wallet. It is shown as an `ssl://` URL, and the host and port in it are what your wallet needs — **take the port from that address rather than assuming one**, since StartOS assigns it and it is not always the same number on every server.
 
-Only the encrypted endpoint is reachable from off this server — there is no plaintext port on any address — so your wallet's SSL option has to be on, and it has to be told to trust the certificate StartOS serves. Both steps, and where the settings live in each wallet, are in the [Start9 guide to connecting a wallet](https://docs.start9.com/bitcoin-guides/connecting-wallets). The Electrum desktop wallet needs a file placed by hand and is covered there too.
+Only the encrypted endpoint is reachable from off this server, so your wallet's SSL option has to be on, and it has to be told to trust the certificate StartOS serves. The one exception is a Tor address you add with its **SSL** toggle turned off: that address alone is plain TCP, so turn SSL **off** in your wallet when you connect over it. Both steps, and where the settings live in each wallet, are in the [Start9 guide to connecting a wallet](https://docs.start9.com/bitcoin-guides/connecting-wallets). The Electrum desktop wallet needs a file placed by hand and is covered there too.
+
+If your wallet connected over Tor before StartOS 0.4, that .onion address no longer reaches Fulcrum. Add an .onion address to the **Electrum (SSL)** interface and point your wallet at it.
 
 ### Configure
 
@@ -39,11 +40,19 @@ Run the **Configure** action to set:
 - **Server Banner** — custom text shown to connecting Electrum clients.
 - **Bitcoin RPC Timeout**, **Bitcoin RPC Clients** — how Fulcrum talks to Bitcoin.
 - **Worker Threads** — leave at `0` to let Fulcrum auto-detect, or pin a specific number.
-- **Database Memory** — the RocksDB cache size in MiB. StartOS sets this for you at install and lowers it to 512 once the index is built, so you should not need to touch it; raise it to trade RAM for faster queries. Once you set it yourself, StartOS stops adjusting it.
+- **Database Memory** — the RocksDB cache size in MiB. StartOS sets this for you at install and lowers it to 512 once the index is built, so you should not need to touch it; raise it to trade RAM for faster queries. Once you set it yourself, StartOS stops adjusting it — except around a **Reindex**, where two values look like StartOS's own: 512 is raised for the rebuild and lowered back afterwards, and the default shown here is lowered to 512 when the rebuild finishes.
 - **Database Max Open Files** — raise this if the logs complain about too many open files.
 - **Max Address History** — the most transactions Fulcrum will report for one address. An address busier than the limit comes back with an empty or partial history, balance and coin list instead of an error, so a wallet holding that address shows the funds as missing even though they are still on chain. Raise this if you use an address with a very long history; the limit is there to cap what a single request can cost in memory and time.
 
 Saving Configure restarts Fulcrum, because it only reads its configuration at startup. Changing only the banner is the exception — it applies right away, with no restart. Leave the banner field empty to go back to Fulcrum's own default banner.
+
+### Reindex
+
+Run the **Reindex** action if Fulcrum keeps crashing and its logs report a corrupted database — a `Corruption` error, or a message to delete the datadir and resync. It deletes the address index and rebuilds it from Bitcoin, without uninstalling Fulcrum or losing your settings.
+
+- Check that Bitcoin is fully synced and try a restart first — neither needs a reindex.
+- The rebuild takes as long as the first one did, which can be several days, and Fulcrum and anything that uses it are unavailable until it finishes. Database Memory is handled as on a fresh install: StartOS's own setting is raised for the rebuild and drops back to 512 when it is done. A value you set is kept, apart from the two exceptions under Database Memory above.
+- If the logs show input/output errors, check your drive before reindexing: a rebuild on a failing drive fails the same way.
 
 ## Limitations
 

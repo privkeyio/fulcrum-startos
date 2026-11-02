@@ -1,18 +1,47 @@
-import { rm } from 'fs/promises'
+import { existsSync } from 'fs'
+import { rm, writeFile } from 'fs/promises'
+import { T } from '@start9labs/start-sdk'
+import { StringDecoder } from 'string_decoder'
 import { sdk } from './sdk'
 import { i18n } from './i18n'
-import { electrumPort } from './utils'
+import { electrumPort, reindexRequest } from './utils'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
 import { rpcHostId, rpcPort } from 'bitcoin-core-startos/startos/utils'
-import { storeJson } from './file-models/store.json'
+import { storeJson } from './fileModels/store.json'
 import {
   defaultDbMem,
   fulcrumConf,
   syncedDbMem,
-} from './file-models/fulcrum.conf'
+} from './fileModels/fulcrum.conf'
+
+// The marker goes last, so an interrupted discard repeats on the next start.
+async function discardIndex(effects: T.Effects) {
+  for (const entry of ['fulc2_db', 'latch']) {
+    await rm(sdk.volumes.main.subpath(entry), {
+      recursive: true,
+      force: true,
+    })
+  }
+  if (
+    (await fulcrumConf.read((c) => c.db_mem).once()) === syncedDbMem() &&
+    syncedDbMem() < defaultDbMem()
+  ) {
+    await fulcrumConf.merge(
+      effects,
+      { db_mem: defaultDbMem() },
+      { allowWriteAfterConst: true },
+    )
+  }
+  await storeJson.merge(effects, { syncNotified: false })
+}
 
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting Fulcrum'))
+
+  if (existsSync(reindexRequest)) {
+    await discardIndex(effects)
+    await rm(reindexRequest, { force: true })
+  }
 
   const store = await storeJson.read().once()
   if (!store) throw new Error('No store')
@@ -41,12 +70,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // daemon to take effect, which is exactly what this const does.
   const conf = await fulcrumConf.read().const(effects)
 
-  // var to keep track of sync progress
   let lastSyncLog: string | null = null
-  let clearedUnreadableIndex = false
+  let missingBlockAt = 0
+  // Survives the respawn, which performs the discard before Fulcrum runs again.
+  let unreadableIndex = false
   // Set while the block headers are being converted, which is the one startup path that keeps the
   // Electrum port shut for a noticeable stretch without any sync progress to report yet.
   let converting = false
+  // Clients can put text in the log once Fulcrum listens, and the index checks all run before that.
+  let listening = false
 
   return sdk.Daemons.of(effects)
     .addDaemon('primary', {
@@ -70,51 +102,80 @@ export const main = sdk.setupMain(async ({ effects }) => {
         'primary-sub',
       ),
       exec: {
-        command: ['Fulcrum', '--ts-format', 'none', '/data/fulcrum.conf'],
-        // capture stdout and keep track of sync progress logs
-        onStdout: (chunk) => {
-          const text = Buffer.isBuffer(chunk)
-            ? chunk.toString('utf8')
-            : String(chunk)
-
-          console.log(text)
-
-          // This build and the marketplace build can write incompatible header records, and neither
-          // can open the other's index; Fulcrum reports this and exits rather than misreading the
-          // data. Discard the index so the restart rebuilds it, instead of crash-looping with no way
-          // out from the UI. Guarded so it happens once per run, and keyed on the message so a
-          // readable index is never touched.
-          if (
-            !clearedUnreadableIndex &&
-            (text.includes('Magic bytes mismatch for DB fulc2_db') ||
-              text.includes('header format stopped partway'))
-          ) {
-            clearedUnreadableIndex = true
-            console.warn(
-              'Fulcrum cannot read the existing address index, which was written by a build using a different header format. Discarding it; it will be rebuilt from scratch.',
-            )
-            rm('/media/startos/volumes/main/fulc2_db', {
-              recursive: true,
-              force: true,
-            }).catch(console.error)
+        // The SDK calls fn on every respawn, so a restarted Fulcrum inherits no partial line or progress.
+        fn: async () => {
+          lastSyncLog = null
+          missingBlockAt = 0
+          converting = false
+          listening = false
+          if (unreadableIndex) {
+            unreadableIndex = false
+            await writeFile(reindexRequest, '')
+            await discardIndex(effects)
+            store.syncNotified = false
+            await rm(reindexRequest, { force: true })
           }
+          let pending = ''
+          const decoder = new StringDecoder('utf8')
+          return {
+            command: ['Fulcrum', '--ts-format', 'none', '/data/fulcrum.conf'],
+            onStdout: (chunk) => {
+              const lines = (pending + decoder.write(chunk)).split('\n')
+              pending = lines.pop() ?? ''
+              for (const line of lines) {
+                console.log(line)
 
-          if (text.includes('block headers to the current format')) converting = true
-          // Clear on anything that means the conversion is no longer under way. Reporting it as still
-          // running when it has died would dress a permanently broken service up as a busy one, which is
-          // worse than the noisy failures this flag exists to quieten. A single substring, because stdout
-          // arrives as raw pipe chunks and a pair could be split across two of them.
-          if (
-            text.includes('block headers in ') || // finished
-            text.includes('Caught exception:') || // died, including any failure inside the conversion
-            text.includes('<Controller>') // got far enough to start indexing, so it is long done
-          ) {
-            converting = false
-          }
+                if (
+                  line.includes('Service started, listening for connections')
+                ) {
+                  listening = true
+                }
 
-          const prefix = '<Controller>'
-          if (text.startsWith(prefix)) {
-            lastSyncLog = text.slice(prefix.length).trim()
+                // This build and the marketplace build can write incompatible header records, and neither
+                // can open the other's index. Fulcrum reports this and exits rather than misreading the
+                // data. Discard the index so the restart rebuilds it, instead of crash-looping with no way
+                // out from the UI. Keyed on the message, so a readable index is never touched.
+                if (
+                  !listening &&
+                  !unreadableIndex &&
+                  (line.includes('Magic bytes mismatch for DB fulc2_db') ||
+                    line.includes('header format stopped partway'))
+                ) {
+                  unreadableIndex = true
+                  console.warn(
+                    'Fulcrum cannot read the existing address index, which was written by a build using a different header format. Discarding it; it will be rebuilt from scratch.',
+                  )
+                }
+
+                if (
+                  !listening &&
+                  line.includes('block headers to the current format')
+                )
+                  converting = true
+                // Clear on anything that means the conversion is no longer under way. Reporting it as still
+                // running when it has died would dress a permanently broken service up as a busy one.
+                if (
+                  line.includes('block headers in ') || // finished
+                  line.includes('Caught exception:') || // died, including any failure inside the conversion
+                  line.includes('<Controller>') // got far enough to start indexing, so it is long done
+                ) {
+                  converting = false
+                }
+
+                if (line.startsWith('<Controller>')) {
+                  lastSyncLog = line.slice('<Controller>'.length).trim()
+                }
+                // Bitcoin's answer for a block it has not downloaded yet (29.x and later, then 28.x); Fulcrum retries every 2 s.
+                if (
+                  line.includes('getblock: error response') &&
+                  /Block not available \(not fully downloaded\)|Block not found on disk/.test(
+                    line,
+                  )
+                ) {
+                  missingBlockAt = Date.now()
+                }
+              }
+            },
           }
         },
       },
@@ -135,7 +196,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
           if (converting) {
             return {
               result: 'loading',
-              message: i18n('Converting the block headers to the current format...'),
+              message: i18n(
+                'Converting the block headers to the current format...',
+              ),
             }
           }
 
@@ -165,6 +228,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
           )
 
           if (fulcrumReady.result === 'success') return fulcrumReady
+
+          if (Date.now() - missingBlockAt < 30_000)
+            return {
+              message: i18n('Waiting for Bitcoin to provide historical blocks'),
+              result: 'loading',
+            }
 
           if (!lastSyncLog) {
             return {

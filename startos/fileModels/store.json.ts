@@ -1,7 +1,7 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-export const shape = z.object({
+export const shape = z.looseObject({
   syncNotified: z.boolean().catch(false),
 })
 
