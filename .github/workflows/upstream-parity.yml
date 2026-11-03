@@ -25,8 +25,8 @@ jobs:
 
           # Opens, updates or closes the bot's issue with this title. An empty body means caught up.
           report() {
-            issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
-              --jq "map(select(.title == \"$1\" and .user.login == \"github-actions[bot]\" and (.pull_request | not)))[0].number // empty")
+            issue=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+              --jq ".[] | select(.title == \"$1\" and .user.login == \"github-actions[bot]\" and (.pull_request | not)) | .number" | sed -n 1p)
             if [ -z "$2" ]; then
               if [ -n "$issue" ]; then
                 gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments" -f body="Caught up." >/dev/null
@@ -40,6 +40,7 @@ jobs:
           }
 
           behind=$(gh api "repos/$GITHUB_REPOSITORY/compare/master...${PACKAGE_UPSTREAM%%/*}:${PACKAGE_UPSTREAM#*/}:master" --jq .ahead_by)
+          [[ "$behind" =~ ^[0-9]+$ ]] || { echo "::error::compare returned '$behind'"; exit 1; }
           body=""
           if [ "$behind" -ne 0 ]; then
             body="$PACKAGE_UPSTREAM master has $behind commit(s) that ours does not. Merge it before the next release:
@@ -52,7 +53,8 @@ jobs:
           report "Behind the upstream package" "$body"
 
           latest=$(gh api "repos/$APP_UPSTREAM/releases?per_page=50" \
-            --jq '.[] | select((.prerelease or .draft) | not) | .tag_name' | sed 's/^v//' | sort -V | tail -1)
+            --jq '.[] | select((.prerelease or .draft) | not) | .tag_name | select(test("^v?[0-9]+(\\.[0-9]+)*$"))' | sed 's/^v//' | sort -V | tail -1)
+          [ -n "$latest" ] || { echo "::error::no stable numeric release found in $APP_UPSTREAM"; exit 1; }
           ours=$(gh api "repos/$GITHUB_REPOSITORY/contents/$VERSION_FILE" --jq .content | base64 -d | grep -oP "$VERSION_PATTERN" | head -1)
           body=""
           if [ "$latest" != "$ours" ] && [ "$(printf '%s\n' "$ours" "$latest" | sort -V | tail -1)" = "$latest" ]; then
