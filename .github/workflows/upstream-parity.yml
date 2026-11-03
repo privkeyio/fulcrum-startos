@@ -1,0 +1,63 @@
+name: Upstream Parity
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PACKAGE_UPSTREAM: Start9Labs/fulcrum-startos
+      APP_UPSTREAM: cculianu/Fulcrum
+      VERSION_FILE: startos/versions/current.ts
+      VERSION_PATTERN: '#blake:\K[0-9.]+'
+    steps:
+      - run: |
+          set -euo pipefail
+
+          # Opens, updates or closes the bot's issue with this title. An empty body means caught up.
+          report() {
+            issue=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+              --jq ".[] | select(.title == \"$1\" and .user.login == \"github-actions[bot]\" and (.pull_request | not)) | .number" | sed -n 1p)
+            if [ -z "$2" ]; then
+              if [ -n "$issue" ]; then
+                gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments" -f body="Caught up." >/dev/null
+                gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/$issue" -f state=closed >/dev/null
+              fi
+            elif [ -n "$issue" ]; then
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/$issue" -f body="$2" >/dev/null
+            else
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$1" -f body="$2" >/dev/null
+            fi
+          }
+
+          behind=$(gh api "repos/$GITHUB_REPOSITORY/compare/master...${PACKAGE_UPSTREAM%%/*}:${PACKAGE_UPSTREAM#*/}:master" --jq .ahead_by)
+          [[ "$behind" =~ ^[0-9]+$ ]] || { echo "::error::compare returned '$behind'"; exit 1; }
+          body=""
+          if [ "$behind" -ne 0 ]; then
+            body="$PACKAGE_UPSTREAM master has $behind commit(s) that ours does not. Merge it before the next release:
+
+          \`\`\`sh
+          git fetch upstream
+          git merge upstream/master
+          \`\`\`"
+          fi
+          report "Behind the upstream package" "$body"
+
+          latest=$(gh api "repos/$APP_UPSTREAM/releases?per_page=50" \
+            --jq '.[] | select((.prerelease or .draft) | not) | .tag_name | select(test("^v?[0-9]+(\\.[0-9]+)*$"))' | sed 's/^v//' | sort -V | tail -1)
+          [ -n "$latest" ] || { echo "::error::no stable numeric release found in $APP_UPSTREAM"; exit 1; }
+          ours=$(gh api "repos/$GITHUB_REPOSITORY/contents/$VERSION_FILE" --jq .content | base64 -d | grep -oP "$VERSION_PATTERN" | head -1)
+          body=""
+          if [ "$latest" != "$ours" ] && [ "$(printf '%s\n' "$ours" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+            body="$APP_UPSTREAM has released $latest, and this package builds $ours. Bring it in without waiting for $PACKAGE_UPSTREAM, which can lag behind it."
+          fi
+          report "Behind the upstream release" "$body"
