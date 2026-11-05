@@ -37,4 +37,5 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Prefill the Configure form with only the keys its spec declares — never spread the whole config.** `fulcrum.conf`'s `banner` key is the _path_ to `banner.txt`, so a spread puts that path in the textarea and the next save writes it into the banner.
 - **`main` must `const` the config _after_ writing `bitcoind` into it**, or that write registers as a change and the daemon restarts itself on every start.
 - **`peering` and `announce` stay pinned false** — either would advertise this server to the public Electrum network.
+- **Leave Start9's `release.yml`, `tagAndRelease.yml` and `syncNext.yml` out when merging their master.** They publish to Start9's registries on a tag or master push and keep a `next` branch in sync. This fork releases by hand to its own registry.
 - **The bitcoind version range is a Knots-flavor floor, unlike Start9's per-major Core ranges.** Merging Start9's `dependencies.ts` brings back Core lines that never serve extended headers, so keep `>=#knots:...` when resolving it.
